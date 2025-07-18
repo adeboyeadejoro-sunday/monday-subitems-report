@@ -37,26 +37,18 @@ class SubitemProcessor:
 
             sub_ratings = [r.strip() for r in rating_cell.split(',') if r.strip()]
             n_sub = len(sub_ratings)
-            header = self.df.iloc[i + 1]
 
-            # --- Robust header lookup ---
-            # Lowercase & strip all header values
-            hdr = header.astype(str).str.strip().str.lower()
-            
-            # Find the column whose header value equals 'name'
-            name_matches = hdr[hdr == 'name'].index
-            rate_matches = hdr[hdr == 'item-rating'].index
-            
-            if name_matches.empty or rate_matches.empty:
-                raise ValueError(
-                    f"Couldn't find subitem 'Name' or 'Item-Rating' mapping "
-                    f"in header row {i+1}. "
-                    f"Found: {list(hdr[hdr != ''].items())}"
-                )
-            
-            name_col   = name_matches[0]
-            rating_col = rate_matches[0]
-            # --------------------------------
+            # attempt to grab the subitem-header row
+            try:
+                header = self.df.iloc[i + 1]
+                hdr = header.astype(str).str.strip().str.lower()
+                name_col   = hdr[hdr == 'name'].index[0]
+                rating_col = hdr[hdr == 'item-rating'].index[0]
+            except Exception:
+                # skip this “main” if no proper header follows
+                print(f"⚠️ Skipping row {i}: no valid subitem header found.")
+                i += 1
+                continue
 
             entries = self.df.iloc[i + 2 : i + 2 + n_sub]
             for entry in entries.itertuples(index=False, name=None):
