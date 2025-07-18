@@ -31,7 +31,6 @@ class SubitemProcessor:
         while i < n_rows:
             main = self.df.iloc[i]
             rating_cell = str(main['SubItem-Rating']).strip()
-            # skip non‑main rows
             if not rating_cell:
                 i += 1
                 continue
@@ -40,9 +39,24 @@ class SubitemProcessor:
             n_sub = len(sub_ratings)
             header = self.df.iloc[i + 1]
 
-            # detect which column holds which subitem field
-            name_col   = header[header == 'Name'].index[0]
-            rating_col = header[header == 'Item-Rating'].index[0]
+            # --- Robust header lookup ---
+            # Lowercase & strip all header values
+            hdr = header.astype(str).str.strip().str.lower()
+            
+            # Find the column whose header value equals 'name'
+            name_matches = hdr[hdr == 'name'].index
+            rate_matches = hdr[hdr == 'item-rating'].index
+            
+            if name_matches.empty or rate_matches.empty:
+                raise ValueError(
+                    f"Couldn't find subitem 'Name' or 'Item-Rating' mapping "
+                    f"in header row {i+1}. "
+                    f"Found: {list(hdr[hdr != ''].items())}"
+                )
+            
+            name_col   = name_matches[0]
+            rating_col = rate_matches[0]
+            # --------------------------------
 
             entries = self.df.iloc[i + 2 : i + 2 + n_sub]
             for entry in entries.itertuples(index=False, name=None):
@@ -53,10 +67,9 @@ class SubitemProcessor:
                     'subitem_rating':   entry[self.df.columns.get_loc(rating_col)],
                 })
 
-            i += 2 + n_sub  # move past main + header + entries
+            i += 2 + n_sub
 
         flat = pd.DataFrame(flat_rows)
-        # apply typo corrections if provided
         if self.corrections:
             flat['subitem_name'] = flat['subitem_name'].replace(self.corrections)
         return flat
